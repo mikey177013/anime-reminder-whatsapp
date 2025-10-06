@@ -12,18 +12,17 @@ export default class extends BaseCommand {
     }
 
     public override execute = async (M: Message): Promise<void> => {
-        let text = `Hello! ${M.sender.username}. Below are the usable commands of the bot.`
-        this.client.commands.forEach((cmd) => {
+        let text = `Hello ${M.sender.username || ''}! 👋\nBelow are the available commands of the bot:\n`
+        for (const cmd of this.client.commands.values()) {
             const { name, cooldown, description, usage } = cmd.config
-            let flag = true
-            if (['eval', 'block', 'unblock', 'delete'].includes(name))
-                flag = this.client.config.owners.includes(M.sender.id)
-            if (flag)
-                text += `\n\n🔵 *Command:* ${this.client.utils.capitalise(name)}\n⚪ *Description:* ${description}\n⚫ *Usage:* ${usage
-                    .split('||')
-                    .map((x) => this.client.config.prefix.concat(x.trim()))
-                    .join(' | ')}\n⏰ *Cooldown:* ${cooldown || 3}s`
-        })
-        return void (await M.reply(text))
+            const restricted = ['eval', 'block', 'unblock', 'delete']
+            const isOwnerOnly = restricted.includes(name)
+            if (isOwnerOnly && !this.client.config.owners.includes(M.sender.id)) continue
+            text += `\n\n🔵 *Command:* ${this.client.utils.capitalise(name)}\n⚪ *Description:* ${description}\n⚫ *Usage:* ${usage
+                .split('||')
+                .map((x) => `${this.client.config.prefix}${x.trim()}`)
+                .join(' | ')}\n⏰ *Cooldown:* ${cooldown || 3}s`
+        }
+        await M.reply(text.trim())
     }
 }
