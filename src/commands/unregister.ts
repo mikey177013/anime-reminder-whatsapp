@@ -19,20 +19,25 @@ export default class extends BaseCommand {
     ): Promise<void> => {
         if (!flags.id)
             return void (await M.reply(
-                `Provide the id of an ongoing anime (MAL). Example - *${this.client.config.prefix}unregister --id=51180*`
+                `Provide the MAL id of an ongoing anime. Example - *${this.client.config.prefix}unregister --id=51180*`
             ))
+
         const group =
             flags.group && flags.group === 'true' && M.isGroup ? true : false
         const id = group ? M.from : M.sender.id
         const anime = await this.client.db.getAnime(flags.id)
+
         if (!anime || !anime.registered.includes(id))
             return void (await M.reply(
                 `🟨 Skipped as ${group ? 'this group is' : "you're"} not registered for this anime id.`
             ))
+
         await this.client.db.pullRegistered(flags.id, id)
+
         await M.reply(
             `🟩 Successfully removed *${anime.titles.title_eng || anime.titles.title_rom}* from the registered list.`
         )
+
         const mapData = this.client.store.get('today')
         if (
             !mapData ||
@@ -40,19 +45,28 @@ export default class extends BaseCommand {
             !this.client.scheduled.includes(anime.titles.title_rom)
         )
             return void null
-        const i = mapData.findIndex((x) => x.title === anime.titles.title_rom)
-        if (i < 0) return void null
-        mapData[i].registered.splice(mapData[i].registered.indexOf(id), 1)
-        if (!mapData[i].registered.length) {
-            mapData.splice(i, 1)
+
+        const index = mapData.findIndex(
+            (x) => x.title === anime.titles.title_rom
+        )
+        if (index < 0) return void null
+
+        const regIndex = mapData[index].registered.indexOf(id)
+        if (regIndex > -1) mapData[index].registered.splice(regIndex, 1)
+
+        if (!mapData[index].registered.length) {
+            mapData.splice(index, 1)
             this.client.scheduled.splice(
                 this.client.scheduled.indexOf(anime.titles.title_rom),
                 1
             )
             const timeoutId = this.client.timer.get(anime.titles.title_rom)
-            clearTimeout(timeoutId)
-            this.client.timer.delete(anime.titles.title_rom)
+            if (timeoutId) {
+                clearTimeout(timeoutId)
+                this.client.timer.delete(anime.titles.title_rom)
+            }
         }
+
         this.client.store.set('today', mapData)
         await new AnimeLoader(this.client).load()
         await this.client.init()
