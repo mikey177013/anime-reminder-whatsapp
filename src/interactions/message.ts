@@ -10,7 +10,7 @@ export class MessageInteraction {
         if (m.key.fromMe) return
 
         const M = this.simplify(m)
-        if (['senderKeyDistributionMessage', 'protocolMessage'].includes(M.type)) return
+        if (!M || ['senderKeyDistributionMessage', 'protocolMessage'].includes(M.type)) return
 
         if (!M.isCommand) {
             console.log(
@@ -40,16 +40,18 @@ export class MessageInteraction {
             (['eval', 'block', 'unblock', 'delete'].includes(command.config.name) &&
                 !this.client.config.owners.includes(M.sender.id))
         ) {
-            return void (await M.reply("Can't find any command."))
+            await M.reply("Can't find any command.")
+            return
         }
 
         const cdKey = `${M.sender.id}:${command.config.name}`
         const cd = this.client.cooldown.get(cdKey)
         if (cd) {
             const remainingS = Math.floor((cd - Date.now()) / 1000)
-            return void (await M.reply(
+            await M.reply(
                 `You are on cooldown. You can use this command again after ${remainingS} second${remainingS > 1 ? 's' : ''}.`
-            ))
+            )
+            return
         } else {
             const cooldownMs = (command.config.cooldown || 3) * 1000
             this.client.cooldown.set(cdKey, Date.now() + cooldownMs)
@@ -123,15 +125,16 @@ export class MessageInteraction {
         }
 
         const rawMentioned = context?.mentionedJid || []
-        const mentioned = rawMentioned.filter((x) => x != null)
+        const mentioned = rawMentioned.filter((x): x is string => x != null)
 
         const from = key.remoteJid || ''
+        
         let quoted:
             | {
                   sender: { id: string; isOwner: boolean }
                   text?: string
                   message: proto.IMessage
-                  key: typeof key
+                  key: proto.IMessageKey
               }
             | undefined = undefined
 
@@ -145,6 +148,7 @@ export class MessageInteraction {
                     : quotedType === 'conversation'
                     ? context.quotedMessage.conversation
                     : undefined
+                    
             quoted = {
                 text: quotedText,
                 message: context.quotedMessage,
@@ -153,10 +157,10 @@ export class MessageInteraction {
                     fromMe: this.client.cleanId(context.participant) === this.client.cleanId(this.client.sock.user?.id || ''),
                     id: context.stanzaId,
                     participant: this.client.cleanId(context.participant)
-                },
+                } as proto.IMessageKey,
                 sender: {
                     id: this.client.cleanId(context.participant),
-                    isOwner: this.client.config.owners.includes(context.participant)
+                    isOwner: this.client.config.owners.includes(this.client.cleanId(context.participant))
                 }
             }
         }
@@ -168,14 +172,23 @@ export class MessageInteraction {
             caption?: string
         ) => {
             if (type === 'text' && Buffer.isBuffer(content)) throw new Error("Can't send buffer as text.")
+            
+            const messageContent: AnyMessageContent = {
+                [type]: type === 'text' ? content as string : content as Buffer,
+                mentions
+            } as AnyMessageContent
+
+            if (caption) {
+                (messageContent as any).caption = caption
+            }
+            
+            if (type === 'image' && process.platform === 'win32') {
+                (messageContent as any).jpegThumbnail = (content as Buffer).toString('base64')
+            }
+
             return await this.client.sock.sendMessage(
                 from,
-                {
-                    [type]: content,
-                    caption,
-                    jpegThumbnail: type === 'image' && process.platform === 'win32' ? (content as Buffer).toString('base64') : undefined,
-                    mentions
-                } as AnyMessageContent,
+                messageContent,
                 { quoted: m }
             )
         }
@@ -187,7 +200,7 @@ export class MessageInteraction {
             message: m,
             reply,
             key,
-            text,
+            text: text || undefined,
             type,
             isGroup,
             isCommand: text?.startsWith(this.client.config.prefix) || false,
