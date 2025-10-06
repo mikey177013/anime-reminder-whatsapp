@@ -7,9 +7,13 @@ export class ReminderInteraction {
 
     public handle = async (): Promise<void> => {
         const task = schedule('0 0 * * *', async () => {
-            const loader = new AnimeLoader(this.client)
-            await loader.load()
-            await this.client.init()
+            try {
+                const loader = new AnimeLoader(this.client)
+                await loader.load()
+                await this.client.init()
+            } catch (err) {
+                console.error('Error running daily reminder task:', err)
+            }
         })
         task.start()
     }
