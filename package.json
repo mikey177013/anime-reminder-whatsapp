@@ -1,24 +1,31 @@
 {
   "name": "anime-reminder-whatsapp",
-  "license": "AGPL-3.0",
   "version": "0.0.1",
+  "license": "AGPL-3.0",
   "author": {
     "name": "Lucky Yambem",
     "url": "https://github.com/LuckyYam/"
   },
   "description": "WhatsApp bot to notify users when a new episode airs of an ongoing anime.",
   "homepage": "https://github.com/LuckyYam/anime-reminder-whatsapp",
-  "main": "./build/index.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/LuckyYam/anime-reminder-whatsapp"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["whatsapp", "anime", "reminder", "bot"],
+  "files": ["build", "src", "README.md"],
   "scripts": {
-    "build": "pnpm rimraf build && tsc -p .",
+    "clean": "rimraf build",
+    "build": "npm run clean && tsc -p .",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node build/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write --config .prettierrc.json \"src/**/*.ts\"",
-    "start": "node build/index.js"
+    "test": "jest"
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",
@@ -53,6 +60,9 @@
     "prettier": "^3.2.5",
     "prisma": "^5.10.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.2"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.2",
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0"
   }
 }
